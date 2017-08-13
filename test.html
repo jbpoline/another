@@ -1,0 +1,695 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Parameter estimates for correlated regressors &#8212; the-course 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="parameter-estimates-for-correlated-regressors">
+<h1>Parameter estimates for correlated regressors<a class="headerlink" href="#parameter-estimates-for-correlated-regressors" title="Permalink to this headline">¶</a></h1>
+<p>By JB Poline and Matthew Brett.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Compatibility with Python 3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">print_function</span>  <span class="c1"># print(&#39;me&#39;) instead of print &#39;me&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>  <span class="c1"># 1/2 == 0.5, not 0</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Array and plotting libraries</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy.linalg</span> <span class="k">as</span> <span class="nn">npl</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</pre></div>
+</div>
+<div class="admonition hint">
+<p class="first admonition-title">Hint</p>
+<p class="last">If running in the IPython console, consider running <code class="docutils literal"><span class="pre">%matplotlib</span></code> to enable
+interactive plots.  If running in the Jupyter Notebook, use <code class="docutils literal"><span class="pre">%matplotlib</span>
+<span class="pre">inline</span></code>.</p>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Display plots inside the notebook</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Make numpy print 4 significant digits for prettiness</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">set_printoptions</span><span class="p">(</span><span class="n">precision</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">suppress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Set random number seed to make random numbers reproducible</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="section" id="the-linear-model-again">
+<h2>The linear model again<a class="headerlink" href="#the-linear-model-again" title="Permalink to this headline">¶</a></h2>
+<p>We have some vector of data <span class="math">\(\vec{y}\)</span> with values
+<span class="math">\(y_1, y_2, ..., y_N\)</span>.</p>
+<p>We have one or more vectors of regressors
+<span class="math">\(\vec{x_1}, \vec{x_2}, ..., \vec{x_P}\)</span>, where <span class="math">\(\vec{x_1}\)</span>
+has values <span class="math">\(x_{1,1}, x_{1,2}, ..., x_{1,N}\)</span>, and <span class="math">\(\vec{x_p}\)</span>
+has values <span class="math">\(x_{p,1}, x_{p,2}, ..., x_{p,N}\)</span>.</p>
+<p>Our linear model says that:</p>
+<div class="math">
+\[\vec{y} = \beta_1 \vec{x_1} + \beta_2 \vec{x_2} +  ... + \beta_P \vec{x_P} + \vec{\varepsilon}\]</div>
+<p>Here:</p>
+<ul class="simple">
+<li><span class="math">\(\beta_1, \beta_2, ... \beta_P\)</span> are scaling coefficients for
+vectors <span class="math">\(\vec{x_1}, \vec{x_2}, ..., \vec{x_P}\)</span> respectively;</li>
+<li><span class="math">\(\vec{\varepsilon} = \varepsilon_1, \varepsilon_2, ... \varepsilon_N\)</span>
+are the remaining unexplained errors for each observation.</li>
+</ul>
+<p>Usually one of vectors <span class="math">\(\vec{x}\)</span> is a vector of constant value 1.
+This models the intercept of the regression model. We will write this
+special vector as <span class="math">\(\vec{1}\)</span>.</p>
+<p>As we saw in the <a class="reference external" href="http://perrin.dynevor.org/glm_intro.html">introduction to the general linear
+model</a>, we can express this
+same linear model as matrices. We:</p>
+<ul class="simple">
+<li>assemble the <span class="math">\(\vec{x_p}\)</span> vectors as columns in a design matrix
+<span class="math">\(\mathbf{X} = [\vec{x_1}, \vec{x_2}, ... \vec{x_P}]\)</span>;</li>
+<li>assemble the <span class="math">\(\beta_p\)</span> coefficients into a vector
+<span class="math">\(\vec{\beta} = \beta_1, \beta_2, ..., \beta_P\)</span>.</li>
+</ul>
+<p>Then matrix multiplication does the rest:</p>
+<div class="math">
+\[\vec{y} = \mathbf{X} \cdot \vec{\beta} + \vec{\varepsilon}\]</div>
+</div>
+<div class="section" id="models-with-correlated-regressors">
+<h2>Models with correlated regressors<a class="headerlink" href="#models-with-correlated-regressors" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="some-correlated-regressors">
+<h3>Some correlated regressors<a class="headerlink" href="#some-correlated-regressors" title="Permalink to this headline">¶</a></h3>
+<p>Imagine we have a TR (image) every 2 seconds, for 30 seconds. Here are
+the times of the TR onsets, in seconds:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">times</span>
+<span class="go">array([ 0,  2,  4,  6,  8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28])</span>
+</pre></div>
+</div>
+<p>Now we make a hemodynamic response function (HRF) shape for an event
+starting at time 0. Call this <code class="docutils literal"><span class="pre">hrf1</span></code>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Gamma distribution from scipy</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="k">import</span> <span class="n">gamma</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Make SPM-like HRF shape with gamma for peak and undershoot</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf1</span> <span class="o">=</span> <span class="n">gamma</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.35</span> <span class="o">*</span> <span class="n">gamma</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Scale area under curve to 1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf1</span> <span class="o">=</span> <span class="n">hrf1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Plot</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">hrf1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;HRF at t=0 (not mean-centered)&#39;</span><span class="p">)</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-7.png">png</a>, <a class="reference external" href=".//test-7.hires.png">hires.png</a>, <a class="reference external" href=".//test-7.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-7.png" src="_images/test-7.png" />
+</div>
+<p>Now we make another HRF starting at t=2 (at the beginning of the second
+TR):</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># HRF starting at t=2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">hrf1</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf2</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">=</span> <span class="n">hrf1</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>For simplicity, we remove the mean from these regressors. We do this to
+make the HRF regressors independent of the mean (<span class="math">\(\vec{1}\)</span>)
+regressor, but it may not be clear yet why that is a good idea.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Remove the mean from both HRF regressors</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf1</span> <span class="o">=</span> <span class="p">(</span><span class="n">hrf1</span> <span class="o">-</span> <span class="n">hrf1</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">hrf2</span> <span class="o">=</span> <span class="p">(</span><span class="n">hrf2</span> <span class="o">-</span> <span class="n">hrf2</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">hrf1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;hrf1 start t=0&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">hrf2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;hrf2 start t=2&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-9.png">png</a>, <a class="reference external" href=".//test-9.hires.png">hires.png</a>, <a class="reference external" href=".//test-9.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-9.png" src="_images/test-9.png" />
+</div>
+<p>These <code class="docutils literal"><span class="pre">hrf1</span></code> and <code class="docutils literal"><span class="pre">hrf2</span></code> regressors are correlated. The Pearson
+correlation coefficient between the HRFs is:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">hrf1</span><span class="p">,</span> <span class="n">hrf2</span><span class="p">)</span>
+<span class="go">array([[ 1.    ,  0.7023],</span>
+<span class="go">       [ 0.7023,  1.    ]])</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="some-simulated-data">
+<h3>Some simulated data<a class="headerlink" href="#some-simulated-data" title="Permalink to this headline">¶</a></h3>
+<p>Now we are going to make some simulated data from the <em>signal</em> formed
+from the correlated regressors, plus some random <em>noise</em>.</p>
+<p>The <em>signal</em> comes from the sum of <code class="docutils literal"><span class="pre">hrf1</span></code> and <code class="docutils literal"><span class="pre">hrf2</span></code>. This simulates
+the occurence of two events, one starting at t=0, one at t=2, both
+causing an HRF response:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">signal</span> <span class="o">=</span> <span class="n">hrf1</span> <span class="o">+</span> <span class="n">hrf2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hrf1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;hrf1&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hrf2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;hrf2&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">signal</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;signal (combined hrfs)&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-11.png">png</a>, <a class="reference external" href=".//test-11.hires.png">hires.png</a>, <a class="reference external" href=".//test-11.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-11.png" src="_images/test-11.png" />
+</div>
+<p>The simulated data is this signal combined with some random noise:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">noise</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Y</span> <span class="o">=</span> <span class="n">signal</span> <span class="o">+</span> <span class="n">noise</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">signal</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;signal&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;signal + noise&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-12.png">png</a>, <a class="reference external" href=".//test-12.hires.png">hires.png</a>, <a class="reference external" href=".//test-12.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-12.png" src="_images/test-12.png" />
+</div>
+<p>We are going apply several linear models to these simulated data.</p>
+<p>All our models include a regressor of a vector of ones, <span class="math">\(\vec{1}\)</span>,
+modeling the mean.</p>
+<p>We will call our <code class="docutils literal"><span class="pre">hrf1</span></code> vector <span class="math">\(\vec{h_1}\)</span>. Call <code class="docutils literal"><span class="pre">hrf2</span></code> :
+<span class="math">\(\vec{h_2}\)</span>.</p>
+<p>Our models are:</p>
+<ul class="simple">
+<li>A model with <span class="math">\(\vec{x}\)</span> vectors <span class="math">\(\vec{h_1}, \vec{1}\)</span> -
+single HRF model);</li>
+<li>A model with <span class="math">\(\vec{h_1}, \vec{h_2}, \vec{1}\)</span> - both HRFs model;</li>
+<li>A model with <span class="math">\(\vec{h_1}, \vec{w}, \vec{1}\)</span>, where
+<span class="math">\(\vec{w}\)</span> is <span class="math">\(\vec{h_2}\)</span> (<code class="docutils literal"><span class="pre">hrf2</span></code>) <em>orthogonalized with
+respect to</em> <span class="math">\(\vec{h_1}\)</span> (<code class="docutils literal"><span class="pre">hrf1</span></code>). We explain what we mean by
+this further down the page.</li>
+</ul>
+<p>First, the model with <span class="math">\(\vec{h_1}, \vec{1}\)</span>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Design matrix for single HRF model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">hrf1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">X_s</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Model with hrf1 regressor&#39;</span><span class="p">)</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-13.png">png</a>, <a class="reference external" href=".//test-13.hires.png">hires.png</a>, <a class="reference external" href=".//test-13.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-13.png" src="_images/test-13.png" />
+</div>
+</div>
+</div>
+<div class="section" id="simulating-the-effect-of-noise-on-parameter-estimates">
+<h2>Simulating the effect of noise on parameter estimates<a class="headerlink" href="#simulating-the-effect-of-noise-on-parameter-estimates" title="Permalink to this headline">¶</a></h2>
+<p>Remember that the students-t statistic is:</p>
+<div class="math">
+\[t = \frac{c^T \hat\beta}{\sqrt{\mathrm{var}(c^T \hat\beta)}}\]</div>
+<p>where <span class="math">\(c^T\)</span> is a row vector of contrast weights,
+<span class="math">\(\hat{\beta}\)</span> is our vector of estimated parameters, and
+<span class="math">\(\mathrm{var}(c^T \hat\beta)\)</span> is the variance of
+<span class="math">\(c^T \hat\beta\)</span>.</p>
+<p>On the assumption of zero mean normally distributed independent noise:</p>
+<div class="math">
+\[\mathrm{var}(c^T \hat\beta) = \hat{\sigma}^2 c^T (X^T X)^+ c\]</div>
+<p>where <span class="math">\(\hat{\sigma}^2\)</span> is our estimate of variance in the
+residuals, and <span class="math">\((X^T X)^+\)</span> is the
+<a class="reference external" href="https://en.wikipedia.org/wiki/Moore%E2%80%93Penrose_pseudoinverse">pseudo-inverse</a>
+of <span class="math">\(X^T X\)</span>.</p>
+<p>Therefore:</p>
+<div class="math">
+\[t = \frac{c^T \hat\beta}{\sqrt{\hat{\sigma}^2 c^T (X^T X)^+ c}}\]</div>
+<p>We will see that this expection of variance correctly predicts that
+parameter estimates for correlated regressors will have higher variance
+for a given level of noise (where the level of noise can be captured by
+<span class="math">\(\hat{\sigma}^2\)</span>).</p>
+<p>Put another way, the parameter estimates of correlated regressors are
+more susceptible to the effect of noise.</p>
+<p>We can look at the variability of the parameter estimates, by estimating
+our models on many different simulated data vectors.</p>
+<p>Each of the data vectors are made of the <em>signal</em> (the sum of <code class="docutils literal"><span class="pre">hrf1</span></code>
+and <code class="docutils literal"><span class="pre">hrf2</span></code>) and some <em>noise</em>. We take a new sample of noise for each
+data vector:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Create array of simulated data vectors in columns</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n_times</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">times</span><span class="p">)</span> <span class="c1"># number of elements in single data vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n_data_vectors</span> <span class="o">=</span> <span class="mi">100000</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Make many noise vectors (new noise for each column)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">noise_vectors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">n_times</span><span class="p">,</span> <span class="n">n_data_vectors</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># add signal to make data vectors</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Use numpy broadcasting to add vector elementwise to 2D array</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Ys</span> <span class="o">=</span> <span class="n">noise_vectors</span> <span class="o">+</span> <span class="n">signal</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">n_times</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Ys</span><span class="o">.</span><span class="n">shape</span>
+<span class="go">(15, 100000)</span>
+</pre></div>
+</div>
+<p>We first fit the model with only the first HRF regressor to every
+(signal + noise) sample vector.</p>
+<p>We will fit our model for each data vector, to make a estimated
+parameter vector for each data vector. We can stack these estimated
+parameter vectors into a 2 by <code class="docutils literal"><span class="pre">n_data_vectors</span></code> array.</p>
+<p>Call this array <span class="math">\(\beta^s\)</span> (where the <span class="math">\(s\)</span> superscript is for
+the <em>single</em> HRF model).</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Fit X_one to signals + noise</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n_regressors</span> <span class="o">=</span> <span class="n">X_s</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># beta (parameter estimate) matrix, one column per data vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_regressors</span><span class="p">,</span> <span class="n">n_data_vectors</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Estimate the parameters of the model for each data vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_pinv</span> <span class="o">=</span> <span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_s</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_data_vectors</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="n">B_s</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_pinv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ys</span><span class="p">[:,</span> <span class="n">i</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>In fact, because of the way that matrix multiplications works, we can do
+exactly the same calculation as we did in the loop above, in one matrix
+multiplication:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">B_again</span> <span class="o">=</span> <span class="n">X_pinv</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ys</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">B_s</span><span class="p">,</span> <span class="n">B_again</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We will use this trick to estimate the parameter matrices for the rest
+of our models.</p>
+<p>Let us look at the variance of the first parameter estimate (the
+parameter for the <code class="docutils literal"><span class="pre">hrf1</span></code> regressor).</p>
+<p>Here is the variance we observe:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">B_s</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] variance for single hrf model:&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">B_s</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[0] variance for single hrf model: 2.2014181026</p>
+<p>(<a class="reference external" href=".//test-17.png">png</a>, <a class="reference external" href=".//test-17.hires.png">hires.png</a>, <a class="reference external" href=".//test-17.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-17.png" src="_images/test-17.png" />
+</div>
+<p>We can compare the observed variance of the first parameter estimate
+with that expected from the formula above:</p>
+<div class="math">
+\[\mathrm{var}(c^T \hat\beta) = \hat{\sigma}^2 c^T (X^T X)^+ c\]</div>
+<p>To select only the first regressor, we use a contrast vector of</p>
+<div class="math">
+\[\begin{split}c = \left[
+\begin{array}{\cvec}
+1 \\
+0 \\
+\end{array}
+\right]\end{split}\]</div>
+<p>Our <span class="math">\(\hat{\sigma}^2\)</span> will be close to 1, because we added noise
+with variance 1:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Estimate sigma^2 for every data vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">predicted</span> <span class="o">=</span> <span class="n">X_s</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">B_s</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">residuals</span> <span class="o">=</span> <span class="n">Ys</span> <span class="o">-</span> <span class="n">predicted</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Residuals have N-P degrees of freedom</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">N</span> <span class="o">=</span> <span class="n">n_times</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">P</span> <span class="o">=</span> <span class="n">npl</span><span class="o">.</span><span class="n">matrix_rank</span><span class="p">(</span><span class="n">X_s</span><span class="p">)</span> <span class="c1"># number of independent columns in design</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">sigma_hat_squared</span> <span class="o">=</span> <span class="p">(</span><span class="n">residuals</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">N</span> <span class="o">-</span> <span class="n">P</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Mean sigma^2 estimate:&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">sigma_hat_squared</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Mean sigma^2 estimate: 1.01981361247</p>
+<p>Because <span class="math">\(\hat{\sigma}^2 \approx 1\)</span>,
+<span class="math">\(\mathrm{var}(c^T \hat\beta) \approx c^T (X^T X)^+ c\)</span>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">C_s</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span> <span class="c1"># column vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># c.T{X.T X}+ c</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">C_s</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_s</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X_s</span><span class="p">))</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_s</span><span class="p">))</span>
+<span class="go">array([[ 2.2051]])</span>
+</pre></div>
+</div>
+<p>Notice that the mean of the parameter estimates for
+$:raw-latex:<cite>vec{h_1}</cite> (<code class="docutils literal"><span class="pre">hrf1</span></code>), is somewhere above one, even though
+we only added 1 times the first HRF as the signal:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] mean for single hrf model:&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B_s</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[0] mean for single hrf model: 1.70147967742</p>
+<p>This is because the single first regresssor has to fit <em>both</em>
+<span class="math">\(\vec{h_1}\)</span> in the signal, and as much as possible of
+<span class="math">\(\vec{h_2}\)</span> in the signal, because there is nothing else in the
+model to fit <span class="math">\(\vec{h_2}\)</span>.</p>
+<p>Now let us construct the model with both HRFs as regressors:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Design matrix for both HRFs model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">hrf1</span><span class="p">,</span> <span class="n">hrf2</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">X_b</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Model with hrf1, hrf2 regressors&#39;</span><span class="p">)</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-21.png">png</a>, <a class="reference external" href=".//test-21.hires.png">hires.png</a>, <a class="reference external" href=".//test-21.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-21.png" src="_images/test-21.png" />
+</div>
+<p>We will call the resulting 3 by <code class="docutils literal"><span class="pre">n_data_vectors</span></code> parameter array :
+<span class="math">\(\beta^b\)</span> (where the <span class="math">\(b\)</span> superscript is for <em>both</em> HRF
+regressors).</p>
+<p>We will use the matrix multiplication trick above to fit all the data
+vectors at the same time:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Fit X_both to signals + noise</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_b</span> <span class="o">=</span> <span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_b</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ys</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>What estimates do we get for the first regressor, when we have both
+regressors in the model?</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] mean for two hrf model&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] variance for two hrf model&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[0] mean for two hrf model 1.00299905499
+Observed B[0] variance for two hrf model 4.35228828591</p>
+<p>(<a class="reference external" href=".//test-23.png">png</a>, <a class="reference external" href=".//test-23.hires.png">hires.png</a>, <a class="reference external" href=".//test-23.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-23.png" src="_images/test-23.png" />
+</div>
+<p>Two things have happened now we added the second (correlated)
+<span class="math">\(\vec{h_2}\)</span> regressor. First, the mean of the parameter for the
+<span class="math">\(\vec{h_1}\)</span> regressor has dropped to 1, because
+<span class="math">\(\beta^b_1 \vec{h_1}\)</span> is no longer having to model the signal due
+to <span class="math">\(\vec{h_2}\)</span>. Second, the variability of the estimate has
+increased. This is what the bottom half of the t-statistic predicts:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Predicted variance for hrf1 parameter in both HRF model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">C_b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">]])</span>  <span class="c1"># column vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">C_b</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_b</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X_b</span><span class="p">))</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_b</span><span class="p">))</span>
+<span class="go">array([[ 4.3517]])</span>
+</pre></div>
+</div>
+<p>The estimate of the parameter for <span class="math">\(\vec{h_2}\)</span> has a mean of around
+1, like the parameter estimates for <span class="math">\(\vec{h_1}\)</span>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[1] mean for two hrf model&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[1] mean for two hrf model 0.994534456872</p>
+<p>(<a class="reference external" href=".//test-25.png">png</a>, <a class="reference external" href=".//test-25.hires.png">hires.png</a>, <a class="reference external" href=".//test-25.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-25.png" src="_images/test-25.png" />
+</div>
+<p>This mean of 1 is what we expect because we have
+<span class="math">\(\vec{h_1} + \vec{h_2}\)</span> in the signal. Not surprisingly, the
+<span class="math">\(\vec{h_2}\)</span> parameter estimate has a similar variability to that
+for the <span class="math">\(\vec{h_1}\)</span> parameter estimate:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[1] variance for two hrf model&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[1] variance for two hrf model 4.37230501038</p>
+<p>The observed variance is very similar to the predicted variance:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">C_b_1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">])[:,</span> <span class="kc">None</span><span class="p">]</span>  <span class="c1"># column vector</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">C_b_1</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_b</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X_b</span><span class="p">))</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_b_1</span><span class="p">))</span>
+<span class="go">array([[ 4.3519]])</span>
+</pre></div>
+</div>
+<p>The parameter estimates for <span class="math">\(\vec{h_1}\)</span> and <span class="math">\(\vec{h_2}\)</span> are
+anti-correlated:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Relationship of estimated parameter of hrf1 and hrf2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="go">array([[ 1.   , -0.703],</span>
+<span class="go">       [-0.703,  1.   ]])</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-28.png">png</a>, <a class="reference external" href=".//test-28.hires.png">hires.png</a>, <a class="reference external" href=".//test-28.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-28.png" src="_images/test-28.png" />
+</div>
+<div class="section" id="orthogonalizing-hrf2-with-respect-to-hrf1">
+<h3>Orthogonalizing hrf2 with respect to hrf1<a class="headerlink" href="#orthogonalizing-hrf2-with-respect-to-hrf1" title="Permalink to this headline">¶</a></h3>
+<p><span class="math">\(\vec{h_2}\)</span> is correlated with $:raw-latex:<cite>vec{h_1}</cite>.</p>
+<p>We can therefore think of <span class="math">\(\vec{h_2}\)</span> as the sum of some scaling
+of <span class="math">\(\vec{h_1}\)</span> plus an extra part that cannot be explained by
+<span class="math">\(\vec{h_1}\)</span>.</p>
+<div class="math">
+\[\vec{h_2} = p (\vec{h_1}) + \vec{w}\]</div>
+<p>where <span class="math">\(p\)</span> is some scalar, and</p>
+<div class="math">
+\[\vec{w} = \vec{h_2} - p (\vec{h_1})\]</div>
+<p>To restate, we can think of <span class="math">\(\vec{h_2}\)</span> as the sum of some scalar
+amount of <span class="math">\(\vec{h_1}\)</span> plus <span class="math">\(\vec{w}\)</span>.</p>
+<p>We want to chose <span class="math">\(p\)</span> such that
+<span class="math">\(\vec{w} = \vec{h_2} - p (\vec{h_1})\)</span> is orthogonal to
+<span class="math">\(\vec{h_1}\)</span>. In this case <span class="math">\(\vec{w}\)</span> is the part of
+<span class="math">\(\vec{h_2}\)</span> that cannot be explained by <span class="math">\(\vec{h_1}\)</span>.</p>
+<p>If <span class="math">\(\vec{w}\)</span> is orthogonal to <span class="math">\(\vec{h_1}\)</span> then we call
+<span class="math">\(\vec{w}\)</span> : <span class="math">\(\vec{h_2}\)</span> <em>orthogonalized with respect to</em>
+<span class="math">\(\vec{h_1}\)</span>.</p>
+<p>Following the same logic as for
+<a class="reference external" href="http://practical-neuroimaging.github.io/day7.html#key-video-on-projecting-vectors">projection</a>,
+given <span class="math">\(\vec{w} - p (\vec{h_1})\)</span> is orthogonal to
+<span class="math">\(\vec{h_1}\)</span>:</p>
+<div class="math">
+\[\begin{split}(\vec{w} - p (\vec{h_1})) \cdot \vec{h_1} = 0 \implies \\
+\vec{w} \cdot \vec{h_1} - p (\vec{h_1}) \cdot \vec{h_1} = 0 \implies \\
+\frac{\vec{w} \cdot \vec{h_1}}{\vec{h_1} \cdot \vec{h_1}} = p\end{split}\]</div>
+<p>Put another way, <span class="math">\(p (\vec{h_1})\)</span> such that
+<span class="math">\(\vec{w} = \vec{h_2} - p (\vec{h_1})\)</span> is orthogonal to
+<span class="math">\(\vec{h_1}\)</span> - is also the projection of <span class="math">\(\vec{h_2}\)</span> onto
+<span class="math">\(\vec{h_1}\)</span>.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Project hrf2 onto hrf1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">hrf2</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)</span> <span class="o">/</span> <span class="n">hrf1</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">projection</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">hrf1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># Get \vec{w}</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">w</span> <span class="o">=</span> <span class="n">hrf2</span> <span class="o">-</span> <span class="n">projection</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># w and hrf1 are now orthogonal</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">hrf1</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Plot the vector parts</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">hrf1</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$\vec</span><span class="si">{h_1}</span><span class="s1">$&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">hrf2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$\vec</span><span class="si">{h_2}</span><span class="s1">$&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">projection</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$p (\vec</span><span class="si">{h_1}</span><span class="s1">)$&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">times</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;$\vec</span><span class="si">{w}</span><span class="s1">$&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># hrf1 part of hrf2, plus unique part, equals original hrf2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hrf2</span><span class="p">,</span> <span class="n">projection</span> <span class="o">+</span> <span class="n">w</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-30.png">png</a>, <a class="reference external" href=".//test-30.hires.png">hires.png</a>, <a class="reference external" href=".//test-30.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-30.png" src="_images/test-30.png" />
+</div>
+<p>How much of the first regressor did we find in the second regressor?</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">p</span>
+<span class="go">0.70231917818451162</span>
+</pre></div>
+</div>
+<p>Let us rewrite our original model containing <code class="docutils literal"><span class="pre">hrf1,</span> <span class="pre">hrf2</span></code>:</p>
+<div class="math">
+\[\vec{y} = \beta^b_1 \vec{h_1} + \beta^b_2 \vec{h_2} + \beta^b_3 1\]</div>
+<p>where <span class="math">\(\vec{y}\)</span> is our data vector.</p>
+<p>Now we know we can also write this as:</p>
+<div class="math">
+\[\begin{split}\vec{y} = \beta^b_1 \vec{h_1} +
+  \beta^b_2 (p (\vec{h_1}) + \vec{w}) + \beta^b_3 1 \\
+= \beta^b_1 \vec{h_1} +
+  \beta^b_2 p (\vec{h_1}) + \beta^b_2 \vec{w} + \beta^b_3 1 \\
+= (\beta^b_1 + p \beta^b_2) \vec{h_1} + \beta^b_2 \vec{w} + \beta^b_3 1\end{split}\]</div>
+<p>So, what will happen if we drop <span class="math">\(\vec{h_2}\)</span> from our model and
+leave only <span class="math">\(\vec{w}\)</span>?</p>
+<p>We have called the parameters from the model with
+<span class="math">\(\vec{h_1}, \vec{h_2}\)</span> : <span class="math">\(\beta^b\)</span>. Call the parameters from
+the model with <span class="math">\(\vec{h_1}, \vec{w}\)</span> : <span class="math">\(\beta^w\)</span>.</p>
+<p>We can see that we are going to get the exact same fit to the data with
+these two models if <span class="math">\(\beta^w_2 = \beta^b_2\)</span> and
+<span class="math">\(\beta^w_1 = p \beta^b_2 + \beta^b_1\)</span>.</p>
+<p>Let us try this new model and see:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">X_w</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">hrf1</span><span class="p">,</span> <span class="n">w</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">hrf1</span><span class="p">)))</span><span class="o">.</span><span class="n">T</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">X_w</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;nearest&#39;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="go">&lt;...&gt;</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-32.png">png</a>, <a class="reference external" href=".//test-32.hires.png">hires.png</a>, <a class="reference external" href=".//test-32.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-32.png" src="_images/test-32.png" />
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Fit the model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_w</span> <span class="o">=</span> <span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_w</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">Ys</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Let us first look at the distribution of <span class="math">\(\beta^w_1\)</span>
+<code class="docutils literal"><span class="pre">==</span> <span class="pre">B_w[0]</span></code>.</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Distribution of parameter for hrf1 in orth model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] mean for two hrf orth model&#39;</span><span class="p">,</span>
+<span class="gp">... </span>      <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</pre></div>
+</div>
+<p>Observed B[0] mean for two hrf orth model 1.70147967742</p>
+<p>(<a class="reference external" href=".//test-34.png">png</a>, <a class="reference external" href=".//test-34.hires.png">hires.png</a>, <a class="reference external" href=".//test-34.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-34.png" src="_images/test-34.png" />
+</div>
+<p>Notice that <span class="math">\(\beta^w_1\)</span> now has the same values as for the single
+HRF model : <span class="math">\(\beta^s_1\)</span>:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">B_s</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:])</span>
+</pre></div>
+</div>
+<p>It therefore has the same variance, and the predicted variance matches:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Observed B[0] variance for two hrf orth model&#39;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pred_var</span> <span class="o">=</span> <span class="n">C_b</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">npl</span><span class="o">.</span><span class="n">pinv</span><span class="p">(</span><span class="n">X_w</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">X_w</span><span class="p">))</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">C_b</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Predicted B[0] variance for two hrf orth model&#39;</span><span class="p">,</span> <span class="n">pred_var</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Observed B[0] variance for two hrf orth model 2.2014181026
+Predicted B[0] variance for two hrf orth model [[ 2.2051]]</p>
+<p>The fact that the single hrf and orthogonalized model parameters match
+may make sense when we remember that adding the <span class="math">\(\vec{w}\)</span>
+regressor to the model cannot change the parameter for the
+<span class="math">\(\vec{h_1}\)</span> regressor as <span class="math">\(\vec{w}\)</span> is orthogonal to
+<span class="math">\(\vec{h_1}\)</span>.</p>
+<p>We predicted above that <span class="math">\(\beta^w_2\)</span> would stay the same as
+<span class="math">\(\beta^b_2\)</span> from the not-orthogonalized model:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:])</span>
+</pre></div>
+</div>
+<p>We predicted that <span class="math">\(\beta^w_1\)</span> would become
+<span class="math">\(\beta^b_1 + p \beta^b_2\)</span> from the not-orthogonalized model:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">predicted_beta1</span> <span class="o">=</span> <span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">+</span> <span class="n">p</span> <span class="o">*</span> <span class="n">B_b</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">predicted_beta1</span><span class="p">,</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:])</span>
+</pre></div>
+</div>
+<p>Our predictions were correct. So let us revise what happened:</p>
+<ul class="simple">
+<li>We estimated our original model with correlated
+<span class="math">\(\vec{h_1}, \vec{h_2}\)</span> to get corresponding estimated
+parameters <span class="math">\(\beta^b_1, \beta^b_2\)</span>;</li>
+<li>we orthogonalized <span class="math">\(\vec{h_2}\)</span> with respect to <span class="math">\(\vec{h_1}\)</span>
+to give <span class="math">\(p\)</span> and <span class="math">\(\vec{w}\)</span>;</li>
+<li>we replaced <span class="math">\(\vec{h_2}\)</span> with <span class="math">\(\vec{w}\)</span> in the model, and
+re-estimated, giving new parameters <span class="math">\(\beta^w_1\)</span> for
+<span class="math">\(\vec{h_1}\)</span>, <span class="math">\(\beta^w_2\)</span> for <span class="math">\(\vec{w}\)</span>;</li>
+<li><span class="math">\(\beta^w_2 = \beta^b_2\)</span> - the parameter for the new
+orthogonalized regressor is unchanged from the non-orthogonalized
+case;</li>
+<li><span class="math">\(\beta^w_1 = \beta^b_1 + p \beta^b_2\)</span> - the parameter for the
+<em>unchanged</em> regressor has increased by <span class="math">\(\beta^b_2\)</span> times the
+amount of <span class="math">\(\vec{h_2}\)</span> present in <span class="math">\(\vec{h_1}\)</span>.</li>
+</ul>
+<p>Here we show some example parameters from the three model fits:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Example parameters from the single hrf model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_s</span><span class="p">[:,:</span><span class="mi">5</span><span class="p">]</span>
+<span class="go">array([[ 0.0032,  1.2188,  2.289 ,  0.2179,  3.45  ],</span>
+<span class="go">       [-0.0969,  0.0488,  0.006 , -0.1493, -0.4889]])</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Example parameters from the non-orth two-hrf model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_b</span><span class="p">[:,:</span><span class="mi">5</span><span class="p">]</span>
+<span class="go">array([[-1.3014,  1.676 ,  0.3588, -0.6153,  0.8819],</span>
+<span class="go">       [ 1.8574, -0.6509,  2.7482,  1.1865,  3.6566],</span>
+<span class="go">       [-0.0969,  0.0488,  0.006 , -0.1493, -0.4889]])</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Example parameters from the orth model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B_w</span><span class="p">[:,:</span><span class="mi">5</span><span class="p">]</span>
+<span class="go">array([[ 0.0032,  1.2188,  2.289 ,  0.2179,  3.45  ],</span>
+<span class="go">       [ 1.8574, -0.6509,  2.7482,  1.1865,  3.6566],</span>
+<span class="go">       [-0.0969,  0.0488,  0.006 , -0.1493, -0.4889]])</span>
+</pre></div>
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># The parameter for the hrf1 regressor in the non-orth model</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># is correlated with the parameter for the hrf1 regressor</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># in the orth model.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;.&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Orth and non-orth hrf1 parameters correlate&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">B_b</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="go">array([[ 1.    ,  0.7103],</span>
+<span class="go">       [ 0.7103,  1.    ]])</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-42.png">png</a>, <a class="reference external" href=".//test-42.hires.png">hires.png</a>, <a class="reference external" href=".//test-42.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-42.png" src="_images/test-42.png" />
+</div>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Relationship of estimated parameters for hrf1 and orthogonalized hrf2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># (they should be independent)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;+&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;hrf1 and orth hrf2 parameters are independent&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">B_w</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">B_w</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="go">array([[ 1.    ,  0.0013],</span>
+<span class="go">       [ 0.0013,  1.    ]])</span>
+</pre></div>
+</div>
+<p>(<a class="reference external" href=".//test-43.png">png</a>, <a class="reference external" href=".//test-43.hires.png">hires.png</a>, <a class="reference external" href=".//test-43.pdf">pdf</a>)</p>
+<div class="figure">
+<img alt="_images/test-43.png" src="_images/test-43.png" />
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">the-course</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017, JB.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/test.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
